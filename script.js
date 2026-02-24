@@ -151,7 +151,9 @@ async function handleAutoCollect() {
   btn.disabled = true;
 
   try {
-    const url = new URL('http://localhost:3000/api/lookup');
+    // In production, we use the relative path so Vercel resolves it automatically.
+    // In local development, you could replace this with http://localhost:3000/api/lookup or run via a proxy.
+    const url = new URL('/api/lookup', window.location.origin);
     url.searchParams.append('company', company);
     url.searchParams.append('year', targetYear);
 

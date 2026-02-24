@@ -119,6 +119,11 @@ app.get('/api/lookup', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`EcoCollect backend listening on port ${PORT}`);
-});
+// App listen for local development, export for Vercel serverless
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`EcoCollect backend listening on port ${PORT}`);
+    });
+}
+
+module.exports = app;
