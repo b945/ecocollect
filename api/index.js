@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(require('path').join(__dirname, '..')));
 
 // Helper function to extract a multiplier for Scope 1, 2, 3 based on sector
 // This simulates what Ditch Carbon does when no primary data is found.
@@ -103,7 +104,7 @@ app.get('/api/lookup', async (req, res) => {
             companyName: quote.longName || bestMatch.shortname || company,
             ticker: ticker,
             sector: sector,
-            year: currentYear,
+            year: targetYear,
             revenue: revenue,
             scope1: parseFloat(scope1.toFixed(2)),
             scope2: parseFloat(scope2.toFixed(2)),
