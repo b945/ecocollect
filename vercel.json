@@ -2,30 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "*.html",
-      "use": "@vercel/static"
+      "src": "api/index.js",
+      "use": "@vercel/node"
     },
     {
-      "src": "server.js",
-      "use": "@vercel/node"
+      "src": "index.html",
+      "use": "@vercel/static"
     }
   ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/server.js"
-    },
-    {
-      "source": "/style.css",
-      "destination": "/style.css"
-    },
-    {
-      "source": "/script.js",
-      "destination": "/script.js"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/$1"
+      "destination": "/api/index.js"
     }
   ]
 }
