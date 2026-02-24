@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoCollect | Carbon Emissions Data</title>
+  <meta name="description" content="Collect and analyze Scope 1, 2, and 3 emissions alongside revenue data by year for comprehensive ESG reporting.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient background glow -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 17L12 22L22 17" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 12L12 17L22 12" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>EcoCollect</span>
+      </div>
+      <div class="nav-links">
+        <a href="#" class="nav-link active">Dashboard</a>
+        <a href="#" class="nav-link">Reports</a>
+        <a href="#" class="nav-link">Settings</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero">
+      <h1>Carbon Intelligence Platform</h1>
+      <p>Streamline your ESG reporting. Collect, analyze, and manage Scope 1, 2, and 3 emissions alongside revenue data.</p>
+    </section>
+
+    <div class="dashboard-grid">
+      <!-- Data Collection Form -->
+      <section class="panel glass-panel" id="collection-panel">
+        <div class="panel-header">
+          <h2>Collect Data</h2>
+          <p>Input new emission and revenue records</p>
+        </div>
+        <form id="emission-form" class="data-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="companyName">Company Name</label>
+              <input type="text" id="companyName" placeholder="e.g. Acme Corp" required>
+            </div>
+            <div class="form-group">
+              <label for="reportYear">Reporting Year</label>
+              <input type="number" id="reportYear" min="1990" max="2100" placeholder="2023" required>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="revenue">Annual Revenue (USD)</label>
+            <div class="input-with-icon">
+              <span class="currency-symbol">$</span>
+              <input type="number" id="revenue" placeholder="1000000" min="0" step="0.01" required>
+            </div>
+          </div>
+
+          <div class="emissions-section">
+            <h3>Emissions Breakdown (tCO₂e)</h3>
+            <div class="form-group">
+              <label for="scope1">Scope 1 (Direct Emissions)</label>
+              <input type="number" id="scope1" placeholder="0.00" min="0" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label for="scope2">Scope 2 (Indirect - Purchased Electricity)</label>
+              <input type="number" id="scope2" placeholder="0.00" min="0" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label for="scope3">Scope 3 (Value Chain Emissions)</label>
+              <input type="number" id="scope3" placeholder="0.00" min="0" step="0.01" required>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary">
+            <span>Save Record</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </form>
+      </section>
+
+      <!-- Dashboard Statistics & List -->
+      <section class="panel dashboard-content">
+        <div class="search-bar glass-panel">
+          <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="searchCompany" placeholder="Search companies or filter by year...">
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card glass-panel">
+            <h4 class="stat-title">Total Records</h4>
+            <div class="stat-value" id="total-records">0</div>
+          </div>
+          <div class="stat-card glass-panel highlight">
+            <h4 class="stat-title">Avg Intensity</h4>
+            <div class="stat-value" id="avg-intensity">0.00 <span class="unit">tCO₂e/$M</span></div>
+          </div>
+        </div>
+
+        <div class="table-container glass-panel">
+          <div class="table-header">
+            <h3>Database Records</h3>
+            <button id="exportBtn" class="btn-secondary btn-small">Export CSV</button>
+          </div>
+          <div class="table-wrapper">
+            <table id="dataTable">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Year</th>
+                  <th class="text-right">Revenue</th>
+                  <th class="text-right">Total Emissions</th>
+                  <th class="text-right">Intensity</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <!-- Data populated dynamically -->
+                <tr>
+                  <td colspan="6" class="empty-state">No records found. Add data to get started.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast">
+    <div class="toast-content">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+      <span id="toast-message">Record saved successfully!</span>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

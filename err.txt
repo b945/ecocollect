@@ -1,0 +1,10 @@
+Error: Call `const yahooFinance = new YahooFinance()` first.  Upgrading from v2?  See https://github.com/gadicc/yahoo-finance2/blob/dev/docs/UPGRADING.md.
+    at YahooFinance.search (C:\Users\amann\Downloads\data collection tool\node_modules\yahoo-finance2\script\src\createYahooFinance.js:196:19)
+    at [eval]:1:41
+    at runScriptInThisContext (node:internal/vm:218:10)
+    at node:internal/process/execution:456:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:454:60)
+    at evalFunction (node:internal/process/execution:286:30)
+    at evalTypeScript (node:internal/process/execution:298:3)
+    at node:internal/main/eval_string:71:3

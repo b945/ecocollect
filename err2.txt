@@ -1,0 +1,7 @@
+yahooFinance.quoteSummary called with invalid options.
+InvalidOptionsError: yahooFinance.quoteSummary called with invalid options.
+    at validate (C:\Users\amann\Downloads\data collection tool\node_modules\yahoo-finance2\script\src\lib\validateAndCoerceTypes.js:231:15)
+    at YahooFinance.moduleExec [as _moduleExec] (C:\Users\amann\Downloads\data collection tool\node_modules\yahoo-finance2\script\src\lib\moduleExec.js:91:49)
+    at YahooFinance.quoteSummary (C:\Users\amann\Downloads\data collection tool\node_modules\yahoo-finance2\script\src\modules\quoteSummary.js:156:17)
+    at [eval]:1:136
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
