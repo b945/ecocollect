@@ -16,6 +16,14 @@
       "destination": "/server.js"
     },
     {
+      "source": "/style.css",
+      "destination": "/style.css"
+    },
+    {
+      "source": "/script.js",
+      "destination": "/script.js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/$1"
     }
