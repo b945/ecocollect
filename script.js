@@ -164,15 +164,33 @@ async function handleAutoCollect() {
       throw new Error(data.error || 'Failed to fetch data');
     }
 
+    // Helper to bypass e-notation for large numbers in HTML inputs securely
+    const formatInputNumber = (val) => {
+      if (val === null || val === undefined) return '';
+      // toFixed(2) safely unrolls scientific notation up to 10^20 into a clean decimal string
+      // without relying on browser-specific localeString behaviors that break type="number"
+      return Number(val).toFixed(2);
+    };
+
     // Fill the form fields
     companyNameInput.value = data.companyName;
     document.getElementById('reportYear').value = data.year;
-    document.getElementById('revenue').value = data.revenue;
-    document.getElementById('scope1').value = data.scope1;
-    document.getElementById('scope2').value = data.scope2;
-    document.getElementById('scope3').value = data.scope3;
+    document.getElementById('revenue').value = formatInputNumber(data.revenue);
+    document.getElementById('scope1').value = formatInputNumber(data.scope1);
+    document.getElementById('scope2').value = formatInputNumber(data.scope2);
+    document.getElementById('scope3').value = formatInputNumber(data.scope3);
 
-    showToastMsg(`Successfully collected estimated data for ${data.ticker}`);
+    // Handle new Sustainability Score
+    const scoreInp = document.getElementById('sustainabilityScore');
+    if (scoreInp && data.sustainabilityScore !== undefined) {
+      scoreInp.value = data.sustainabilityScore;
+    }
+
+    if (data.message) {
+      showToastMsg(data.message);
+    } else {
+      showToastMsg(`Successfully collected data for ${data.ticker}`);
+    }
 
   } catch (err) {
     alert("Error finding company data: " + err.message);
@@ -200,6 +218,10 @@ function handleFormSubmit(e) {
   const revenueInMillions = revenue / 1000000;
   const intensity = revenueInMillions > 0 ? (totalEmissions / revenueInMillions) : 0;
 
+  // Retrieve new Score element
+  const scoreEl = document.getElementById('sustainabilityScore');
+  const sustainabilityScore = scoreEl && scoreEl.value ? parseFloat(scoreEl.value) : 0;
+
   // Create object
   const newRecord = {
     id: Date.now().toString(),
@@ -210,7 +232,8 @@ function handleFormSubmit(e) {
     scope2,
     scope3,
     totalEmissions,
-    intensity
+    intensity,
+    sustainabilityScore
   };
 
   // Update state
