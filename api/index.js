@@ -49,8 +49,14 @@ app.get('/api/lookup', async (req, res) => {
             }
         }
 
-        // 1. Search for generic company ticker
-        const searchResult = await yahooFinance.search(company);
+        let searchResult;
+        try {
+            searchResult = await yahooFinance.search(company);
+        } catch (e) {
+            console.log("Yahoo search failed, fallback to website:", e.message);
+            return await handleWebsiteFallback(company, targetYear, res);
+        }
+
         if (!searchResult.quotes || searchResult.quotes.length === 0) {
             return await handleWebsiteFallback(company, targetYear, res);
         }
@@ -82,7 +88,7 @@ app.get('/api/lookup', async (req, res) => {
         const currentYear = new Date().getFullYear() - 1;
 
         if (revenue === 0) {
-            return res.status(404).json({ error: `Revenue data not available` });
+            return await handleWebsiteFallback(company, targetYear, res);
         }
 
         // If they requested a past year, applying a rough reverse-CAGR (e.g. 5% less every year back)
@@ -227,15 +233,14 @@ async function handleWebsiteFallback(company, year, res) {
 // Primary Gemini Data fetching
 async function handleGemini(company, year, res) {
     const ai = new GoogleGenAI({}); // Defaults to process.env.GEMINI_API_KEY
-    const prompt = `You are a strict financial and sustainability data assistant.
+    const prompt = `You are a financial and sustainability data assistant.
     
-Search the internet for the EXACT publicly reported ESG (Environmental, Social, and Governance) data inside official financial and sustainability reports for the company "${company}" for the year ${year}.
-Provide the EXACT reported revenue (in USD), Scope 1, Scope 2, and Scope 3 emissions (in metric tons CO2e), and calculate or find a Sustainability Score (0-100).
+Search for the EXACT publicly reported ESG (Environmental, Social, and Governance) data inside official financial and sustainability reports for the company "${company}" for the year ${year}.
+Provide the reported revenue (in USD), Scope 1, Scope 2, and Scope 3 emissions (in metric tons CO2e), and calculate or find a Sustainability Score (0-100).
 
 CRITICAL RULES:
-1. Do NOT guess or hallucinate any numbers.
-2. If you cannot find the EXACT reported figure for any metric in an official report for that specific year, you MUST return 0 for it.
-3. No rough estimates allowed.
+1. Try to find the EXACT reported figure for any metric in an official report.
+2. If exact data is completely unavailable, provide a realistic industry estimate based on the company's sector and scale, to ensure data is generated. Do not return 0 unless the company genuinely has 0 revenue or emissions.
 
 Return ONLY a valid JSON object with the following keys, without any markdown formatting or extra text: 
 { "companyName": "string", "ticker": "string or 'UNLISTED'", "sector": "string", "revenue": number, "scope1": number, "scope2": number, "scope3": number, "sustainabilityScore": number }`;

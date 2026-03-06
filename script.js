@@ -104,9 +104,9 @@ function renderTable(data) {
     <tr>
       <td class="company-name">${record.companyName}</td>
       <td>${record.year}</td>
-      <td class="text-right">${formatCurrency(record.revenue)}</td>
+      <td class="text-right">${record.revenue ? formatCurrency(record.revenue) : 'N/A'}</td>
       <td class="text-right">${formatNumber(record.totalEmissions)}</td>
-      <td class="text-right value-highlight">${formatNumber(record.intensity)}</td>
+      <td class="text-right value-highlight">${record.intensity ? formatNumber(record.intensity) : '0.00'}</td>
       <td class="text-right">
         <button class="btn-danger" onclick="deleteRecord('${record.id}')" title="Delete record">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -215,7 +215,7 @@ function handleFormSubmit(e) {
   // Calculate totals
   const totalEmissions = scope1 + scope2 + scope3;
   // Intensity: metric tons of CO2e per million $ revenue
-  const revenueInMillions = revenue / 1000000;
+  const revenueInMillions = (revenue || 0) / 1000000;
   const intensity = revenueInMillions > 0 ? (totalEmissions / revenueInMillions) : 0;
 
   // Retrieve new Score element
