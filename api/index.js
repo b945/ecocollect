@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const { default: YahooFinance } = require('yahoo-finance2');
+const axios = require('axios');
+const cheerio = require('cheerio');
 require('dotenv').config();
 require('dotenv').config({ path: '.env.local' });
-const { GoogleGenAI } = require('@google/genai');
+
 
 const yahooFinance = new YahooFinance();
 
@@ -25,13 +27,16 @@ app.get('/api/lookup', async (req, res) => {
 
         const targetYear = parseInt(year) || new Date().getFullYear() - 1;
 
-        // Try Gemini primarily if API key is provided
-        if (process.env.GEMINI_API_KEY) {
-            try {
-                return await handleGemini(company, targetYear, res);
-            } catch (err) {
-                console.error("Gemini failed, falling back to Yahoo:", err);
-            }
+        // Try ScraperAPI if the API key is provided
+        if (!process.env.SCRAPERAPI_KEY) {
+            return res.status(400).json({ error: 'Missing Configuration: You must add SCRAPERAPI_KEY to your .env.local file. Get one for free at scraperapi.com.' });
+        }
+
+        try {
+            return await handleScraperAPI(company, targetYear, res);
+        } catch (err) {
+            console.error("ScraperAPI failed:", err.message);
+            // Fallthrough to Yahoo Finance 0-fallback if the scraper totally fails
         }
 
         let searchResult;
@@ -122,59 +127,101 @@ function handleEmptyFallback(company, year, res, ticker = 'UNLISTED', sector = '
     return res.json(result);
 }
 
-// Primary Gemini Data fetching
-async function handleGemini(company, year, res) {
-    const ai = new GoogleGenAI({}); // Defaults to process.env.GEMINI_API_KEY
-    const prompt = `You are a strict financial and sustainability data assistant.
-    
-Search for the EXACT publicly reported ESG (Environmental, Social, and Governance) data inside official financial and sustainability reports for the company "${company}" for the year ${year}.
-Provide the reported revenue (in USD), Scope 1, Scope 2, and Scope 3 emissions (in metric tons CO2e), and calculate or find a Sustainability Score (0-100).
+// Web Scraping using ScraperAPI to bypass CAPTCHAs
+async function handleScraperAPI(company, year, res) {
+    const apiKey = process.env.SCRAPERAPI_KEY;
 
-CRITICAL RULES:
-1. You MUST find the EXACT reported figure for any metric in an official public report.
-2. DO NOT GENERATE OR ESTIMATE FAKE DATA. If exact data is completely unavailable or not publicly reported, you MUST explicitly return 0. Do not guess industry averages.
+    // Using DuckDuckGo via Scraper API since it has highly readable HTML snippets
+    const query = `"${company}" ESG report ${year} "Scope 1" "Scope 2" "Scope 3" emissions "metric tons CO2e" revenue`;
+    const targetUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const scraperUrl = `http://api.scraperapi.com?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}`;
 
-Return ONLY a valid JSON object with the following keys, without any markdown formatting or extra text: 
-{ "companyName": "string", "ticker": "string or 'UNLISTED'", "sector": "string", "revenue": number, "scope1": number, "scope2": number, "scope3": number, "sustainabilityScore": number }`;
+    const response = await axios.get(scraperUrl);
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            tools: [{ googleSearch: {} }]
-        }
+    if (response.status !== 200) {
+        throw new Error(`Scraper Error: ${response.status}`);
+    }
+
+    // Load raw HTML and aggregate snippets
+    const $ = cheerio.load(response.data);
+    let combinedText = '';
+
+    // In duckduckgo HTML, snippets are usually in a.result__snippet
+    $('.result__snippet').each((i, el) => {
+        combinedText += $(el).text() + ' ';
     });
 
-    const text = response.text;
-    const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(jsonStr);
-
-    // Helper to deeply parse formatted string floats (e.g. "300,000", "0.0") into real JS Numbers
-    const parseNum = (val) => {
-        if (typeof val === 'number') return val;
-        if (!val) return 0;
-        const clean = String(val).replace(/,/g, '').replace(/[^\d.-]/g, '');
-        const parsed = parseFloat(clean);
-        return isNaN(parsed) ? 0 : parsed;
+    // Helper functions to find numbers close to keywords via Regex
+    const extractMetric = (text, keyword) => {
+        // Looks for keyword, followed by up to 40 chars of text, then captures a number (with optional commas/decimals)
+        const regex = new RegExp(`${keyword}.{0,50}?(\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?)`, 'i');
+        const match = text.match(regex);
+        if (match && match[1]) {
+            const clean = match[1].replace(/,/g, '');
+            const parsed = parseFloat(clean);
+            return isNaN(parsed) ? 0 : parsed;
+        }
+        return 0;
     };
 
-    const scope1 = parseNum(data.scope1);
-    const scope2 = parseNum(data.scope2);
-    const scope3 = parseNum(data.scope3);
+    const extractRevenue = (text) => {
+        // Similar to extractMetric but looks for revenue/sales and an optional billion/million indicator
+        const regex = /(?:revenue|sales).{0,30}?\$?\s?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s?(billion|B|million|M)?/i;
+        const match = text.match(regex);
+        if (match && match[1]) {
+            const num = parseFloat(match[1].replace(/,/g, ''));
+            const multiplierStr = match[2] ? match[2].toLowerCase() : '';
+
+            let finalVal = num;
+            if (multiplierStr.startsWith('b')) finalVal = num * 1000000000;
+            if (multiplierStr.startsWith('m')) finalVal = num * 1000000;
+            return finalVal;
+        }
+        return 0; // Hand off to Yahoo Finance if raw string search fails
+    };
+
+    let scope1 = extractMetric(combinedText, 'Scope 1');
+    let scope2 = extractMetric(combinedText, 'Scope 2');
+    let scope3 = extractMetric(combinedText, 'Scope 3');
+    let revenue = extractRevenue(combinedText);
+
+    // Get ticker from Yahoo Finance to complete the payload
+    let ticker = 'UNLISTED';
+    let sector = 'Unknown';
+    let companyName = company;
+
+    try {
+        const sr = await yahooFinance.search(company);
+        if (sr.quotes && sr.quotes.length > 0) {
+            const best = sr.quotes.find(q => q.quoteType === 'EQUITY') || sr.quotes[0];
+            ticker = best.symbol;
+            companyName = best.shortname || best.longname || company;
+
+            // if Scraper missed revenue, grab it from yahoo
+            if (revenue === 0) {
+                const quoteSummary = await yahooFinance.quoteSummary(ticker, { modules: ['assetProfile', 'financialData'] });
+                const fin = quoteSummary.financialData || {};
+                revenue = fin.totalRevenue || 0;
+                sector = quoteSummary.assetProfile?.sector || 'Unknown';
+            }
+        }
+    } catch (e) {
+        // ignore yahoo fails
+    }
 
     const result = {
-        companyName: data.companyName || company,
-        ticker: data.ticker || 'UNLISTED',
-        sector: data.sector || 'Unknown',
+        companyName: companyName,
+        ticker: ticker,
+        sector: sector,
         year: year,
-        revenue: parseNum(data.revenue),
+        revenue: revenue,
         scope1: scope1,
         scope2: scope2,
         scope3: scope3,
         totalEmissions: parseFloat((scope1 + scope2 + scope3).toFixed(2)),
-        sustainabilityScore: parseNum(data.sustainabilityScore) || 50,
-        sources: 'Gemini AI',
-        message: `Data retrieved using Gemini AI. Sustainability Score: ${parseNum(data.sustainabilityScore) || 50}/100`
+        sustainabilityScore: 50, // Static fallback as search APIs cannot dynamically score
+        sources: 'ScraperAPI Web Scrape',
+        message: 'Data retrieved algorithmically via ScraperAPI. Note: Regex extraction can mistake years/page numbers as emissions.'
     };
 
     return res.json(result);
