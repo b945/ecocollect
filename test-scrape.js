@@ -1,31 +1,30 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
+require('dotenv').config({ path: '.env.local' });
 
 async function testScraping() {
     const company = "Apple";
     const year = 2023;
     const query = `"${company}" ESG report ${year} "Scope 1" "Scope 2" "Scope 3" emissions "metric tons CO2e" revenue`;
 
-    // Using DuckDuckGo HTML search since Google heavily blocks automated simple GET requests
-    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const url = `https://api.scraperapi.com/structured/google/search?api_key=${process.env.SCRAPERAPI_KEY}&query=${encodeURIComponent(query)}`;
 
     try {
-        console.log("Fetching URL:", url);
+        console.log("Fetching URL:", url.replace(process.env.SCRAPERAPI_KEY, 'HIDDEN'));
 
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-        });
+        const response = await axios.get(url);
 
-        const $ = cheerio.load(response.data);
+        const fs = require('fs');
+
         let combinedText = '';
+        if (response.data && response.data.organic_results) {
+            response.data.organic_results.forEach(result => {
+                combinedText += (result.title + " " + result.snippet + " ");
+            });
+        }
 
-        // In duckduckgo HTML, snippets are usually in a.result__snippet
-        $('.result__snippet').each((i, el) => {
-            combinedText += $(el).text() + ' ';
-        });
 
+        fs.writeFileSync('out2.txt', combinedText);
         console.log("Extracted Combined Text:");
         console.log(combinedText.substring(0, 500) + "...\n");
 

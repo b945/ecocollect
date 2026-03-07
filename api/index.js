@@ -131,30 +131,31 @@ function handleEmptyFallback(company, year, res, ticker = 'UNLISTED', sector = '
 async function handleScraperAPI(company, year, res) {
     const apiKey = process.env.SCRAPERAPI_KEY;
 
-    // Using DuckDuckGo via Scraper API since it has highly readable HTML snippets
+    // Using ScraperAPI Structured Google Search to bypass HTML CAPTCHAs
     const query = `"${company}" ESG report ${year} "Scope 1" "Scope 2" "Scope 3" emissions "metric tons CO2e" revenue`;
-    const targetUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-    const scraperUrl = `http://api.scraperapi.com?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}`;
+    const targetUrl = `https://api.scraperapi.com/structured/google/search?api_key=${apiKey}&query=${encodeURIComponent(query)}`;
 
-    const response = await axios.get(scraperUrl);
+    const response = await axios.get(targetUrl);
 
-    if (response.status !== 200) {
+    if (response.status !== 200 || !response.data) {
         throw new Error(`Scraper Error: ${response.status}`);
     }
 
-    // Load raw HTML and aggregate snippets
-    const $ = cheerio.load(response.data);
+    // Extract text from the structured JSON
     let combinedText = '';
-
-    // In duckduckgo HTML, snippets are usually in a.result__snippet
-    $('.result__snippet').each((i, el) => {
-        combinedText += $(el).text() + ' ';
-    });
+    if (response.data && response.data.organic_results) {
+        response.data.organic_results.forEach(result => {
+            combinedText += (result.title + " " + result.snippet + " ");
+        });
+    }
 
     // Helper functions to find numbers close to keywords via Regex
     const extractMetric = (text, keyword) => {
-        // Looks for keyword, followed by up to 40 chars of text, then captures a number (with optional commas/decimals)
-        const regex = new RegExp(`${keyword}.{0,50}?(\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?)`, 'i');
+        // Look for the keyword, optionally followed by some garbage/spaces, then the first robust number.
+        // We enforce that the number must contain a comma (e.g. 58,200) since raw scope emissions 
+        // for large public companies are universally in the thousands or millions of metric tons.
+        // We limit the search distance to 40 characters so it doesn't jump to other sentences.
+        const regex = new RegExp(`${keyword}[^\\d]{0,40}?(\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?)`, 'is');
         const match = text.match(regex);
         if (match && match[1]) {
             const clean = match[1].replace(/,/g, '');
