@@ -34,6 +34,11 @@
   padding: 0;
 }
 
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-base);
@@ -42,6 +47,7 @@ body {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
+  width: 100%;
 }
 
 /* Ambient Background Glow */
@@ -346,11 +352,15 @@ button {
   background: transparent;
   padding: 0.5rem 0;
   box-shadow: none;
+  width: 100%;
+  flex: 1;
+  outline: none;
 }
 
 .search-bar input:focus {
   background: transparent;
   box-shadow: none;
+  outline: none;
 }
 
 /* Stats Row */
@@ -579,6 +589,13 @@ tr:last-child td {
   }
 }
 
+/* Small Tablets & Large Phones (~600px) */
+@media (max-width: 600px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Mobile Phones (~480px) */
 @media (max-width: 480px) {
   .container {
@@ -623,6 +640,13 @@ tr:last-child td {
 
   .stat-value {
     font-size: 1.5rem;
+  }
+
+  /* Table Header */
+  .table-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
   }
 
   /* Tables - Force Horizontal Internal Scroll */
