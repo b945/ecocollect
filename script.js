@@ -1,39 +1,31 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  onSnapshot,
+  addDoc,
+  deleteDoc,
+  doc,
+  query,
+  orderBy
+} from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+// TODO: Replace with your actual Firebase configuration
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 // State management
-let emissionsData = [
-  {
-    id: '1',
-    companyName: 'Acme Corp',
-    year: 2023,
-    revenue: 15400000,
-    scope1: 1200.5,
-    scope2: 850.2,
-    scope3: 4500.0,
-    totalEmissions: 6550.7,
-    intensity: 425.37
-  },
-  {
-    id: '2',
-    companyName: 'GreenTech Solutions',
-    year: 2023,
-    revenue: 8200000,
-    scope1: 45.0,
-    scope2: 120.5,
-    scope3: 310.0,
-    totalEmissions: 475.5,
-    intensity: 57.98
-  },
-  {
-    id: '3',
-    companyName: 'Global Logistics',
-    year: 2022,
-    revenue: 45000000,
-    scope1: 15400.0,
-    scope2: 3200.0,
-    scope3: 28500.0,
-    totalEmissions: 47100.0,
-    intensity: 1046.66
-  }
-];
+let emissionsData = [];
 
 // DOM Elements
 const form = document.getElementById('emission-form');
@@ -64,8 +56,27 @@ const formatNumber = (value) => {
 
 // Initialize app
 function init() {
-  renderTable(emissionsData);
-  updateStats(emissionsData);
+  const emissionsRef = collection(db, "emissions");
+  const q = query(emissionsRef, orderBy("year", "desc"));
+
+  // Real-time listener for Firestore data
+  onSnapshot(q, (snapshot) => {
+    emissionsData = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Maintain filter if any 
+    if (searchInput.value) {
+      handleSearch({ target: searchInput });
+    } else {
+      renderTable(emissionsData);
+      updateStats(emissionsData);
+    }
+  }, (error) => {
+    console.error("Error fetching emissions data:", error);
+    showToastMsg("Error loading records from database!");
+  });
 
   // Create an auto-fill button
   const autoFillBtn = document.createElement('button');
@@ -201,7 +212,7 @@ async function handleAutoCollect() {
 }
 
 // Handle form submission
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
   e.preventDefault();
 
   // Get values
@@ -222,9 +233,8 @@ function handleFormSubmit(e) {
   const scoreEl = document.getElementById('sustainabilityScore');
   const sustainabilityScore = scoreEl && scoreEl.value ? parseFloat(scoreEl.value) : 0;
 
-  // Create object
+  // Create object (without id, Firestore handles IDs automatically)
   const newRecord = {
-    id: Date.now().toString(),
     companyName,
     year,
     revenue,
@@ -233,24 +243,38 @@ function handleFormSubmit(e) {
     scope3,
     totalEmissions,
     intensity,
-    sustainabilityScore
+    sustainabilityScore,
+    createdAt: new Date().toISOString()
   };
 
-  // Update state
-  emissionsData.unshift(newRecord);
+  try {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = `<span class="loading-spinner"></span> Saving...`;
+    submitBtn.disabled = true;
 
-  // Re-render
-  renderTable(emissionsData);
-  updateStats(emissionsData);
+    // Save to Firestore
+    await addDoc(collection(db, "emissions"), newRecord);
 
-  // Reset form
-  form.reset();
+    // Reset form
+    form.reset();
 
-  // Show toast validation
-  showToast();
-
-  // If there's an active search, re-apply it
-  handleSearch({ target: searchInput });
+    // Show toast validation
+    showToastMsg('Record saved to cloud successfully!');
+  } catch (error) {
+    console.error("Error adding document: ", error);
+    alert("Error saving record to database. Please try again.");
+  } finally {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.innerHTML = `
+      <span>Save Record</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>`;
+    submitBtn.disabled = false;
+  }
 }
 
 // Handle search/filtering
@@ -271,13 +295,15 @@ function handleSearch(e) {
 }
 
 // Delete record
-window.deleteRecord = function (id) {
-  if (confirm('Are you sure you want to delete this record?')) {
-    emissionsData = emissionsData.filter(record => record.id !== id);
-    renderTable(emissionsData);
-    updateStats(emissionsData);
-    // Maintain filter if any
-    handleSearch({ target: searchInput });
+window.deleteRecord = async function (id) {
+  if (confirm('Are you sure you want to delete this record from the cloud?')) {
+    try {
+      await deleteDoc(doc(db, "emissions", id));
+      showToastMsg('Record deleted successfully');
+    } catch (err) {
+      console.error("Error deleting document: ", err);
+      alert("Error deleting record from database.");
+    }
   }
 };
 
